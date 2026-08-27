@@ -9,6 +9,7 @@
     "dev:server": "tsx watch server/src/server.ts",
     "build": "vite build",
     "preview": "vite preview",
+    "vercel-build": "prisma generate && vite build",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
