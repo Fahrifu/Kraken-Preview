@@ -1,0 +1,1 @@
+import React from 'react';import {Link} from 'react-router-dom';export default function NotFound(){return <main className="page-main"><section className="page-hero"><p className="eyebrow"><span/>404</p><h1>LOST AT SEA.</h1><p>This Kraken page does not exist.</p><Link className="button primary" to="/">RETURN HOME</Link></section></main>}

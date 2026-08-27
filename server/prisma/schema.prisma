@@ -1,0 +1,306 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  name      String
+  short     String
+  tier      String
+  region    String
+  record    String
+  ranking   String
+  summary   String
+  logoUrl   String?
+  bannerUrl String?
+  stats     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  players      Player[]
+  matches      Match[]
+  staff        Staff[]
+  achievements Achievement[]
+  tournaments  Tournament[]
+  rosterHistory RosterHistory[]
+  syncConfigs   IntegrationConfig[]
+}
+
+model Player {
+  id               Int      @id @default(autoincrement())
+  slug             String   @unique
+  ign              String
+  name             String
+  role             String
+  country          String
+  number           String
+  bio              String
+  imageUrl         String?
+  socials          Json?
+  externalAccounts Json?
+  stats            Json
+  specialties      Json
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  matchStats    MatchPlayerStat[]
+  matchLineups  MatchLineup[]
+  rosterEntries RosterHistory[]
+}
+
+model Match {
+  id           Int      @id @default(autoincrement())
+  opponentName String
+  event        String
+  date         String
+  time         String   @default("")
+  status       String
+  score        String?
+  stage        String?
+  format       String?
+  streamUrl    String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  tournamentId Int?
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+
+  opponentId     Int?
+  opponentEntity Opponent? @relation(fields: [opponentId], references: [id], onDelete: SetNull)
+
+  maps            MatchMap[]
+  lineup          MatchLineup[]
+  playerStats     MatchPlayerStat[]
+  externalRecords ExternalMatch[]
+}
+
+model NewsArticle {
+  id        Int      @id @default(autoincrement())
+  tag       String
+  date      String
+  title     String
+  text      String
+  imageUrl  String?
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+
+model Sponsor {
+  id           Int      @id @default(autoincrement())
+  name         String
+  websiteUrl   String?
+  logoUrl      String?
+  tier         String   @default("partner")
+  description  String?
+  displayOrder Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+
+model Staff {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  name      String
+  role      String
+  country   String?
+  bio       String?
+  imageUrl  String?
+  socials   Json?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teamId Int?
+  team   Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+}
+
+model Achievement {
+  id          Int      @id @default(autoincrement())
+  title       String
+  tournament  String?
+  placement   String
+  date        String
+  prize       String?
+  description String?
+  imageUrl    String?
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  teamId Int?
+  team   Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+}
+
+model Tournament {
+  id         Int      @id @default(autoincrement())
+  slug       String   @unique
+  name       String
+  organizer  String?
+  region     String?
+  tier       String?
+  startDate  String?
+  endDate    String?
+  logoUrl    String?
+  websiteUrl String?
+  status     String   @default("upcoming")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  teamId Int?
+  team   Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  matches Match[]
+}
+
+model Opponent {
+  id         Int      @id @default(autoincrement())
+  name       String
+  slug       String   @unique
+  region     String?
+  logoUrl    String?
+  websiteUrl String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  matches Match[]
+}
+
+
+model MatchMap {
+  id            Int      @id @default(autoincrement())
+  name          String
+  order         Int      @default(1)
+  krakenScore   Int?
+  opponentScore Int?
+  result        String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+}
+
+model MatchLineup {
+  id         Int      @id @default(autoincrement())
+  side       String   @default("kraken")
+  slot       Int      @default(1)
+  role       String?
+  playerName String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  playerId Int?
+  player   Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
+}
+
+model MatchPlayerStat {
+  id        Int      @id @default(autoincrement())
+  label     String
+  value     String
+  category  String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  playerId Int
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}
+
+model RosterHistory {
+  id        Int      @id @default(autoincrement())
+  joinedAt  String?
+  leftAt    String?
+  role      String?
+  notes     String?
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  playerId Int
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}
+
+
+model IntegrationConfig {
+  id             Int      @id @default(autoincrement())
+  provider       String
+  game           String
+  enabled        Boolean  @default(false)
+  region         String?
+  routing        String?
+  teamExternalId String?
+  settings       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  teamId Int?
+  team   Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, game, teamId])
+}
+
+model SyncRun {
+  id           Int      @id @default(autoincrement())
+  provider     String
+  game         String
+  status       String
+  startedAt    DateTime @default(now())
+  finishedAt   DateTime?
+  imported     Int      @default(0)
+  updated      Int      @default(0)
+  skipped      Int      @default(0)
+  errorMessage String?
+  metadata     Json?
+}
+
+model ExternalMatch {
+  id          Int      @id @default(autoincrement())
+  provider    String
+  externalId  String
+  game        String
+  payloadHash String?
+  raw         Json?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @updatedAt
+
+  matchId Int?
+  match   Match? @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, externalId])
+}

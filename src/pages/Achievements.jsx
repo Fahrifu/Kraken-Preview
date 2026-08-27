@@ -1,0 +1,4 @@
+import { useEffect, useState } from 'react';
+import { Trophy } from 'lucide-react';
+import { api } from '../services/api';
+export default function Achievements(){const [items,setItems]=useState([]);useEffect(()=>{api.getAchievements().then(setItems).catch(()=>setItems([]));},[]);return <main className="page-shell"><section className="page-hero compact"><span className="eyebrow">KRAKEN HISTORY</span><h1>Achievements</h1><p>Competitive placements, trophies and organization milestones.</p></section><section className="section achievement-grid">{items.map(item=><article className={`achievement-card ${item.featured?'featured':''}`} key={item.id}><Trophy size={24}/><span className="eyebrow">{item.team?.name||'KRAKEN'}</span><h3>{item.title}</h3><strong>{item.placement}</strong><p>{[item.tournament,item.date,item.prize].filter(Boolean).join(' · ')}</p>{item.description?<small>{item.description}</small>:null}</article>)}</section></main>}

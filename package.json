@@ -1,0 +1,39 @@
+{
+  "name": "kraken-esports-platform",
+  "private": true,
+  "version": "7.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
+    "dev:client": "vite",
+    "dev:server": "tsx watch server/src/server.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "tsx server/prisma/seed.ts",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "7.9.1",
+    "@vitejs/plugin-react": "latest",
+    "bcryptjs": "latest",
+    "concurrently": "latest",
+    "cors": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "jsonwebtoken": "latest",
+    "lucide-react": "latest",
+    "prisma": "7.9.1",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-router-dom": "latest",
+    "vite": "latest",
+    "@prisma/adapter-pg": "7.9.1",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5"
+  }
+}
