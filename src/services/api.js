@@ -1,25 +1,39 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 5000);
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      signal: options.signal || controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+
+    if (!response.ok) {
+      let message = `Request failed (${response.status})`;
+      try {
+        const data = await response.json();
+        message = data.error || message;
+      } catch {}
+      throw new Error(message);
     }
-  });
 
-  if (!response.ok) {
-    let message = `Request failed (${response.status})`;
-    try {
-      const data = await response.json();
-      message = data.error || message;
-    } catch {}
-    throw new Error(message);
+    if (response.status === 204) return null;
+    return response.json();
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`Kraken API request timed out after ${API_TIMEOUT_MS}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  if (response.status === 204) return null;
-  return response.json();
 }
 
 export const api = {
