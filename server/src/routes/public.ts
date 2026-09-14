@@ -3,15 +3,24 @@ import { prisma } from '../prisma.ts';
 
 const router = Router();
 
+function getOptionalQueryString(value) {
+  if (value === undefined) return { value: undefined };
+  if (typeof value !== 'string') return { error: 'Query parameter must be a single string value' };
+  const trimmed = value.trim();
+  return trimmed ? { value: trimmed } : { value: undefined };
+}
+
 router.get('/teams', async (_req, res) => {
   const teams = await prisma.team.findMany({ orderBy: { id: 'asc' } });
   res.json(teams);
 });
 
 router.get('/players', async (req, res) => {
-  const team = req.query.team;
+  const parsedTeam = getOptionalQueryString(req.query.team);
+  if (parsedTeam.error) return res.status(400).json({ error: parsedTeam.error });
+
   const players = await prisma.player.findMany({
-    where: team ? { team: { slug: team } } : undefined,
+    where: parsedTeam.value ? { team: { slug: parsedTeam.value } } : undefined,
     include: { team: { select: { slug: true, name: true } } },
     orderBy: [{ teamId: 'asc' }, { number: 'asc' }]
   });
@@ -19,9 +28,11 @@ router.get('/players', async (req, res) => {
 });
 
 router.get('/matches', async (req, res) => {
-  const team = req.query.team;
+  const parsedTeam = getOptionalQueryString(req.query.team);
+  if (parsedTeam.error) return res.status(400).json({ error: parsedTeam.error });
+
   const matches = await prisma.match.findMany({
-    where: team ? { team: { slug: team } } : undefined,
+    where: parsedTeam.value ? { team: { slug: parsedTeam.value } } : undefined,
     include: {
       team: { select: { slug: true, name: true } },
       tournament: true,
@@ -35,7 +46,6 @@ router.get('/matches', async (req, res) => {
 router.get('/news', async (_req, res) => {
   res.json(await prisma.newsArticle.findMany({ orderBy: { id: 'desc' } }));
 });
-
 
 router.get('/sponsors', async (_req, res) => {
   res.json(await prisma.sponsor.findMany({
@@ -70,10 +80,9 @@ router.get('/opponents', async (_req, res) => {
   res.json(await prisma.opponent.findMany({ orderBy: { name: 'asc' } }));
 });
 
-
 router.get('/matches/:id', async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid match ID' });
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid match ID' });
 
   const match = await prisma.match.findUnique({
     where: { id },
@@ -98,9 +107,11 @@ router.get('/matches/:id', async (req, res) => {
 });
 
 router.get('/roster-history', async (req, res) => {
-  const team = req.query.team;
+  const parsedTeam = getOptionalQueryString(req.query.team);
+  if (parsedTeam.error) return res.status(400).json({ error: parsedTeam.error });
+
   const data = await prisma.rosterHistory.findMany({
-    where: team ? { team: { slug: String(team) } } : undefined,
+    where: parsedTeam.value ? { team: { slug: parsedTeam.value } } : undefined,
     include: {
       team: { select: { slug: true, name: true } },
       player: true
