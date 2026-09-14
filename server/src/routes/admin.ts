@@ -24,6 +24,15 @@ const models = {
   externalMatches: prisma.externalMatch
 };
 
+function parseResourceId(value) {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function isValidBody(body) {
+  return body && typeof body === 'object' && !Array.isArray(body);
+}
+
 router.get('/overview', async (_req, res) => {
   const [teams, players, matches, news, sponsors, staff, achievements, tournaments, opponents] = await Promise.all([
     prisma.team.count(), prisma.player.count(), prisma.match.count(), prisma.newsArticle.count(), prisma.sponsor.count(),
@@ -42,7 +51,7 @@ router.post('/:resource', async (req, res) => {
   const model = models[req.params.resource];
   if (!model) return res.status(404).json({ error: 'Unknown resource' });
 
-  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+  if (!isValidBody(req.body)) {
     return res.status(400).json({ error: 'Request body is missing or invalid' });
   }
 
@@ -50,8 +59,8 @@ router.post('/:resource', async (req, res) => {
     const { id, createdAt, updatedAt, ...data } = req.body;
     res.status(201).json(await model.create({ data }));
   } catch (error) {
-    console.error(error);
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Unable to create resource' });
+    console.error('Admin create failed:', error);
+    res.status(400).json({ error: 'Unable to create resource. Check the submitted fields and relationships.' });
   }
 });
 
@@ -59,9 +68,9 @@ router.patch('/:resource/:id', async (req, res) => {
   const model = models[req.params.resource];
   if (!model) return res.status(404).json({ error: 'Unknown resource' });
 
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid resource ID' });
-  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+  const id = parseResourceId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid resource ID' });
+  if (!isValidBody(req.body)) {
     return res.status(400).json({ error: 'Request body is missing or invalid' });
   }
 
@@ -69,19 +78,24 @@ router.patch('/:resource/:id', async (req, res) => {
     const { id: _id, createdAt, updatedAt, ...data } = req.body;
     res.json(await model.update({ where: { id }, data }));
   } catch (error) {
-    console.error(error);
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Unable to update resource' });
+    console.error('Admin update failed:', error);
+    res.status(400).json({ error: 'Unable to update resource. Check the submitted fields and relationships.' });
   }
 });
 
 router.delete('/:resource/:id', async (req, res) => {
   const model = models[req.params.resource];
   if (!model) return res.status(404).json({ error: 'Unknown resource' });
+
+  const id = parseResourceId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid resource ID' });
+
   try {
-    await model.delete({ where: { id: Number(req.params.id) } });
+    await model.delete({ where: { id } });
     res.status(204).end();
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Admin delete failed:', error);
+    res.status(400).json({ error: 'Unable to delete resource. It may be referenced by related data.' });
   }
 });
 
