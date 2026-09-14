@@ -14,12 +14,19 @@ if (!process.env.JWT_SECRET) {
 const app = express();
 const port = Number(process.env.PORT || 4000);
 
-const allowedOrigins = [
+const localOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174'
 ];
+
+const configuredOrigins = (process.env.CLIENT_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([...localOrigins, ...configuredOrigins]);
 
 app.use(cors({
   origin(origin, callback) {
@@ -29,13 +36,12 @@ app.use(cors({
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.has(origin)) {
       return callback(null, true);
     }
 
     console.error('Blocked CORS origin:', origin);
-
-    callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
   },
   credentials: true
 }));
@@ -52,4 +58,7 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(port, () => console.log(`Kraken API running on http://localhost:${port}`));
+app.listen(port, () => {
+  console.log(`Kraken API running on http://localhost:${port}`);
+  console.log(`Allowed client origins: ${[...allowedOrigins].join(', ')}`);
+});
