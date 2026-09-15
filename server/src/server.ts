@@ -5,9 +5,18 @@ import authRoutes from './routes/auth.ts';
 import publicRoutes from './routes/public.ts';
 import adminRoutes from './routes/admin.ts';
 import syncRoutes from './routes/sync.ts';
+import { prisma } from './prisma.ts';
 
-if (!process.env.JWT_SECRET) {
+const isProduction = process.env.NODE_ENV === 'production';
+const jwtSecret = process.env.JWT_SECRET || '';
+
+if (!jwtSecret) {
   console.error('Missing JWT_SECRET in .env');
+  process.exit(1);
+}
+
+if (isProduction && (jwtSecret.length < 32 || jwtSecret === 'replace-this-with-a-long-random-secret')) {
+  console.error('JWT_SECRET is not production-safe. Use a unique secret with at least 32 characters.');
   process.exit(1);
 }
 
@@ -25,6 +34,11 @@ const configuredOrigins = (process.env.CLIENT_ORIGIN || '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+
+if (isProduction && configuredOrigins.length === 0) {
+  console.error('CLIENT_ORIGIN must be configured in production.');
+  process.exit(1);
+}
 
 const allowedOrigins = new Set([...localOrigins, ...configuredOrigins]);
 
@@ -48,6 +62,15 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'Kraken API' }));
+app.get('/api/ready', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true, service: 'Kraken API', database: 'ready' });
+  } catch (error) {
+    console.error('Database readiness check failed:', error);
+    res.status(503).json({ ok: false, service: 'Kraken API', database: 'unavailable' });
+  }
+});
 app.use('/api/auth', authRoutes);
 app.use('/api', publicRoutes);
 app.use('/api/admin', adminRoutes);
