@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from 'react';
 import { LogOut, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
@@ -26,7 +25,7 @@ const resources = [
 const starter = {
   teams: { slug:'', name:'', short:'', tier:'flagship', region:'', record:'', ranking:'', summary:'', stats:[] },
   players: { slug:'', ign:'', name:'', role:'', country:'NO', number:'01', bio:'', stats:[], specialties:[], teamId:1 },
-  matches: { opponent:'', event:'', date:'', time:'', status:'upcoming', score:null, teamId:1, opponentId:null, tournamentId:null },
+  matches: { opponentName:'', event:'', date:'', time:'', status:'upcoming', score:null, teamId:1, opponentId:null, tournamentId:null },
   news: { tag:'ORG', date:'', title:'', text:'', imageUrl:'', published:true },
   sponsors: { name:'', websiteUrl:'', logoUrl:'', tier:'partner', description:'', displayOrder:0, active:true },
   staff: { slug:'', name:'', role:'', country:'NO', bio:'', imageUrl:'', socials:null, active:true, teamId:null },
@@ -42,61 +41,94 @@ const starter = {
   externalMatches: { provider:'', externalId:'', game:'', payloadHash:'', raw:null, matchId:null }
 };
 
+const jsonFields = new Set([
+  'stats',
+  'specialties',
+  'socials',
+  'externalAccounts',
+  'settings',
+  'metadata',
+  'raw'
+]);
+
+const integerFields = new Set([
+  'teamId',
+  'playerId',
+  'matchId',
+  'tournamentId',
+  'opponentId',
+  'displayOrder',
+  'sortOrder',
+  'slot',
+  'order',
+  'krakenScore',
+  'opponentScore',
+  'imported',
+  'updated',
+  'skipped'
+]);
+
+const positiveIdFields = new Set(['teamId', 'playerId', 'matchId', 'tournamentId', 'opponentId']);
+
 function toTextarea(value) {
   if (typeof value === 'string') return value;
   return JSON.stringify(value ?? '', null, 2);
 }
 
 function parseField(key, value) {
-  const jsonFields = [
-    'stats',
-    'specialties',
-    'socials',
-    'externalAccounts',
-    'settings',
-    'metadata',
-    'raw'
-  ];
-
-  if (jsonFields.includes(key)) {
-    if (value === '' || value === null) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-
-  const numberFields = [
-    'teamId',
-    'playerId',
-    'matchId',
-    'tournamentId',
-    'opponentId',
-    'displayOrder',
-    'sortOrder',
-    'slot',
-    'order',
-    'krakenScore',
-    'opponentScore'
-  ];
-
-  if (numberFields.includes(key)) {
-    if (value === '' || value === null) {
-      return null;
-    }
-
-    return Number(value);
-  }
-
-  if (key === 'score' && value === '') {
-    return null;
-  }
-
+  if (key === 'score' && value === '') return null;
   return value;
+}
+
+function buildPayload(editing, editableKeys) {
+  const payload = {};
+
+  for (const key of editableKeys) {
+    const value = editing[key];
+
+    if (jsonFields.has(key)) {
+      if (value === '' || value === null || value === undefined) {
+        payload[key] = null;
+        continue;
+      }
+
+      if (typeof value === 'string') {
+        try {
+          payload[key] = JSON.parse(value);
+        } catch {
+          throw new Error(`${key} must contain valid JSON`);
+        }
+      } else {
+        payload[key] = value;
+      }
+      continue;
+    }
+
+    if (integerFields.has(key)) {
+      if (value === '' || value === null || value === undefined) {
+        payload[key] = null;
+        continue;
+      }
+
+      const parsed = Number(value);
+      if (!Number.isInteger(parsed)) {
+        throw new Error(`${key} must be a whole number`);
+      }
+      if (positiveIdFields.has(key) && parsed <= 0) {
+        throw new Error(`${key} must be a positive ID`);
+      }
+      if (!positiveIdFields.has(key) && parsed < 0) {
+        throw new Error(`${key} cannot be negative`);
+      }
+
+      payload[key] = parsed;
+      continue;
+    }
+
+    payload[key] = value;
+  }
+
+  return payload;
 }
 
 export default function Admin() {
@@ -159,12 +191,19 @@ export default function Admin() {
   }
 
   function startCreate() {
+    setMessage('');
     setEditing(structuredClone(starter[resource]));
   }
 
   async function save() {
-    const payload = {};
-    for (const key of editableKeys) payload[key] = editing[key];
+    let payload;
+    try {
+      payload = buildPayload(editing, editableKeys);
+      setMessage('');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Please correct the form before saving');
+      return;
+    }
 
     setBusy(true);
     try {
@@ -201,8 +240,8 @@ export default function Admin() {
         <h1>Admin Login</h1>
         <p>Manage the public roster, competitive schedule and organization news.</p>
         <form onSubmit={login}>
-          <label>Email<input value={email} onChange={e=>setEmail(e.target.value)} type="email" /></label>
-          <label>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" /></label>
+          <label>Email<input value={email} onChange={e=>setEmail(e.target.value)} type="email" autoComplete="username" /></label>
+          <label>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" autoComplete="current-password" /></label>
           <button className="button button-primary" disabled={busy}>Sign in</button>
         </form>
         {message && <p className="admin-error">{message}</p>}
@@ -229,7 +268,7 @@ export default function Admin() {
     <section className="admin-workspace">
       <aside className="admin-sidebar">
         {resources.map(r => <button className={resource===r.key?'active':''} key={r.key}
-          onClick={()=>{setResource(r.key);setEditing(null)}}>{r.label}</button>)}
+          onClick={()=>{setResource(r.key);setEditing(null);setMessage('')}}>{r.label}</button>)}
       </aside>
 
       <div className="admin-list-panel">
@@ -242,9 +281,9 @@ export default function Admin() {
         {busy && <p className="muted">Loading…</p>}
 
         <div className="admin-record-list">
-          {items.map(item => <button key={item.id} className={`admin-record ${editing?.id===item.id?'selected':''}`} onClick={()=>setEditing(structuredClone(item))}>
-            <strong>{item.name || item.ign || item.title || item.opponentName || item.opponent}</strong>
-            <span>{item.slug || item.role || item.event || item.tag}</span>
+          {items.map(item => <button key={item.id} className={`admin-record ${editing?.id===item.id?'selected':''}`} onClick={()=>{setEditing(structuredClone(item));setMessage('')}}>
+            <strong>{item.name || item.ign || item.title || item.opponentName || item.opponent || `ID ${item.id}`}</strong>
+            <span>{item.slug || item.role || item.event || item.tag || item.provider || ''}</span>
           </button>)}
         </div>
       </div>
@@ -258,8 +297,8 @@ export default function Admin() {
           <div className="admin-panel-head">
             <div><span className="eyebrow">{editing.id ? `ID ${editing.id}` : 'NEW RECORD'}</span><h2>{editing.name || editing.ign || editing.title || editing.opponentName || editing.opponent || 'New item'}</h2></div>
             <div className="admin-actions">
-              {editing.id && <button className="icon-button danger" onClick={()=>remove(editing.id)}><Trash2 size={18}/></button>}
-              <button className="button button-primary" onClick={save}><Save size={16}/> Save</button>
+              {editing.id && <button className="icon-button danger" onClick={()=>remove(editing.id)} aria-label="Delete record"><Trash2 size={18}/></button>}
+              <button className="button button-primary" onClick={save} disabled={busy}><Save size={16}/> Save</button>
             </div>
           </div>
 
@@ -292,7 +331,12 @@ export default function Admin() {
                   ? <textarea rows={key==='stats'||key==='specialties'?6:4}
                       value={toTextarea(value)}
                       onChange={e=>setEditing({...editing,[key]:parseField(key,e.target.value)})}/>
-                  : <input value={value ?? ''} onChange={e=>setEditing({...editing,[key]:parseField(key,e.target.value)})}/>}
+                  : <input
+                      type={integerFields.has(key) ? 'number' : 'text'}
+                      step={integerFields.has(key) ? '1' : undefined}
+                      min={positiveIdFields.has(key) ? '1' : integerFields.has(key) ? '0' : undefined}
+                      value={value ?? ''}
+                      onChange={e=>setEditing({...editing,[key]:parseField(key,e.target.value)})}/>} 
               </label>
             })}
           </div>
