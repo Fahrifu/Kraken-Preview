@@ -1,37 +1,41 @@
+# UiA Kraken Esports Platform — Phase 8
 
-# UiA Kraken Esports Platform — v4 / Phase 7
+Kraken is a full-stack esports organization platform built with React, Express, Prisma and PostgreSQL. The public site prefers live API/database data and falls back to bundled demo data when the API is unavailable during local development.
 
-Phase 7 makes the public React website database-driven. The frontend now requests teams, players, matches and news from the Express API/PostgreSQL stack. If the backend is temporarily unavailable during local development, the site clearly switches to bundled fallback demo data instead of breaking.
-
-## Added in Phase 7
+## Current Phase 8 hardening
 
 - Global React `DataProvider`
 - Public API integration for teams, players, matches and news
-- PostgreSQL/API data becomes the preferred public data source
-- 5-second API timeout and friendly offline handling
-- Loading, empty and error states
-- Visible data-source indicator and manual refresh control
-- Team/player relationship normalization from API responses
-- Home, Teams, Team Detail, Player Detail, Matches and News migrated to shared live data
-- Bundled fallback data retained only as a development safety net
-- Existing Prisma 7.9.1 / TypeScript server fixes preserved
-- Clean Kraken logo treatment preserved
+- 5-second configurable API timeout
+- Loading, empty and error states across public organization pages
+- Production-aware CORS configuration through `CLIENT_ORIGIN`
+- Safer admin CRUD validation and error handling
+- Defensive public rendering for incomplete records
+- Public API query/id validation
+- Admin login input normalization and length limits
+- Production JWT secret guardrails
+- Database-backed readiness endpoint
 
+## Platform features
 
-Version 3 turns the Kraken front end into a full-stack organization platform.
-
-## Added in this stage
-
+- React public website
+- Five competitive divisions
+- Team and player detail pages
+- Match center and match detail pages
+- News
+- Partners
+- Staff
+- Achievements
+- Tournaments
+- Roster history
 - Express REST API
 - PostgreSQL database
-- Prisma ORM schema
-- Seed data for all five divisions
+- Prisma ORM
 - JWT administrator authentication
 - `/admin` control room
-- CRUD API for teams, players, matches and news
+- CRUD management for organization data
+- Competitive-data sync infrastructure
 - Docker Compose PostgreSQL service
-- Environment configuration
-- Existing public React site remains intact
 
 ## Requirements
 
@@ -61,7 +65,17 @@ macOS/Linux:
 cp .env.example .env
 ```
 
-Change `JWT_SECRET` and `ADMIN_PASSWORD` before using the project outside local development.
+For local development, the example values can be used as a starting point.
+
+For production:
+
+- set a unique `JWT_SECRET` with at least 32 characters
+- set a strong `ADMIN_PASSWORD`
+- set `CLIENT_ORIGIN` to the deployed frontend origin; multiple origins can be comma-separated
+- configure `DATABASE_URL` for the production PostgreSQL database
+- set `VITE_API_URL` to the deployed API URL
+
+The server refuses to start in production when the example/weak JWT secret is used or when `CLIENT_ORIGIN` is missing.
 
 ## 3. Start PostgreSQL
 
@@ -87,7 +101,7 @@ Default local admin credentials come from `.env.example`:
 - Email: `admin@kraken.local`
 - Password: `ChangeMe123!`
 
-Change these in `.env` before seeding if desired.
+Do not use the default credentials outside local development.
 
 ## 6. Start the full stack
 
@@ -98,20 +112,35 @@ npm run dev
 - Website: `http://localhost:5173`
 - Admin: `http://localhost:5173/admin`
 - API: `http://localhost:4000/api`
-- API health: `http://localhost:4000/api/health`
+- Liveness: `http://localhost:4000/api/health`
+- Database readiness: `http://localhost:4000/api/ready`
+
+`/api/health` confirms that the API process is running. `/api/ready` also checks PostgreSQL connectivity and returns HTTP 503 when the database is unavailable.
 
 ## Admin capabilities
 
-The Control Room can currently:
+The Control Room can currently manage:
 
-- View database totals
-- Add/edit/delete teams
-- Add/edit/delete players
-- Add/edit/delete matches
-- Add/edit/delete news articles
-- Authenticate using an 8-hour JWT session
+- Teams
+- Players
+- Matches
+- News
+- Sponsors
+- Staff
+- Achievements
+- Tournaments
+- Opponents
+- Match maps
+- Match lineups
+- Match player stats
+- Roster history
+- Integration configuration
+- Sync runs
+- External matches
 
-`stats` and `specialties` are JSON fields in the current generic editor. Enter valid JSON when editing them.
+Admin authentication uses an 8-hour JWT session.
+
+Some admin fields contain JSON data. Enter valid JSON when editing fields such as `stats`, `specialties`, `socials`, `settings`, `metadata`, and `raw`.
 
 ## Database tools
 
@@ -126,23 +155,26 @@ npm run db:studio
 ```text
 src/
   components/
+  context/
   data/
+  hooks/
   pages/
-    Admin.jsx
   services/
-    api.js
 
 server/
+  generated/
   prisma/
     schema.prisma
-    seed.js
+    seed.ts
   src/
+    integrations/
     middleware/
     routes/
-    prisma.js
-    server.js
+    utils/
+    prisma.ts
+    server.ts
 ```
 
-## Next recommended stage
+## Next stage
 
-Connect the public pages to the API instead of their bundled fallback data, add image uploads/player photography, create a richer match editor, permissions/roles, audit logging, and automated game-data integrations.
+The next production-focused work should cover richer admin-form validation, role/permission design, audit logging, production database migration strategy, media storage/upload handling, automated testing, and deployment configuration for the API/database layer.
